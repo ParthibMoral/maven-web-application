@@ -1,0 +1,24 @@
+node{
+    echo "The Branch Name:${env.BRANCH_NAME}"
+    echo "The Current Build no.:${env.BUILD_NUMBER}"
+    echo "The Current Job Name:${env.JOB_NAME}"
+    def mavenHome = tool name:"maven3.9.1"
+    properties([buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '5', daysToKeepStr: '', numToKeepStr: '5')), pipelineTriggers([pollSCM('* * * * *')])])
+    stage('CheckoutCode'){
+        git credentialsId: '439fdff4-045c-443f-a4d0-9931de70ebb9', url: 'https://github.com/ParthibMoral/maven-web-application.git'
+    }
+    stage('Build'){
+        sh"${mavenHome}/bin/mvn clean package"
+    }
+    stage('ExecuteSonarQubeReport'){
+        sh"${mavenHome}/bin/mvn sonar:sonar" 
+    }
+    stage('UploadArtifactintoNexus'){
+        sh"${mavenHome}/bin/mvn deploy"
+    }
+    stage('DeployArtifactintoTomcatServer'){
+        sshagent(['e2da58a5-d764-4e5d-a292-0d17031ff062']) {
+          sh "scp -o StrictHostkeyChecking=no target/maven-web-application.war ec2-user@172.31.32.23:/opt/apache-tomcat-9.0.73/webapps"
+       }
+    }
+}
